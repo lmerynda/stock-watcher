@@ -1,74 +1,228 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useState } from "react";
+import {
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StockData, StockService } from "@/services/StockService";
+import { StockListItem } from "@/components/stocks/StockListItem";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import { router } from "expo-router";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const WATCHLIST_STORAGE_KEY = "watchlist_symbols";
 
-export default function HomeScreen() {
+// Default stocks to show if watchlist is empty
+const DEFAULT_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "META"];
+
+export default function WatchlistScreen() {
+  const [stocks, setStocks] = useState<StockData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [watchlistSymbols, setWatchlistSymbols] = useState<string[]>([]);
+
+  // Function to load watchlist symbols from storage
+  const loadWatchlistSymbols = async () => {
+    try {
+      const storedSymbols = await AsyncStorage.getItem(WATCHLIST_STORAGE_KEY);
+      if (storedSymbols) {
+        return JSON.parse(storedSymbols) as string[];
+      }
+      // Use default symbols if none are stored
+      return DEFAULT_SYMBOLS;
+    } catch (error) {
+      console.error("Error loading watchlist:", error);
+      return DEFAULT_SYMBOLS;
+    }
+  };
+
+  // Function to save watchlist symbols to storage
+  const saveWatchlistSymbols = async (symbols: string[]) => {
+    try {
+      await AsyncStorage.setItem(
+        WATCHLIST_STORAGE_KEY,
+        JSON.stringify(symbols)
+      );
+    } catch (error) {
+      console.error("Error saving watchlist:", error);
+    }
+  };
+
+  // Function to remove a stock from watchlist
+  const removeFromWatchlist = async (symbol: string) => {
+    const updatedSymbols = watchlistSymbols.filter((s) => s !== symbol);
+    setWatchlistSymbols(updatedSymbols);
+    await saveWatchlistSymbols(updatedSymbols);
+    setStocks(stocks.filter((stock) => stock.symbol !== symbol));
+  };
+
+  // Load watchlist data
+  useEffect(() => {
+    const fetchWatchlistData = async () => {
+      setIsLoading(true);
+      try {
+        const symbols = await loadWatchlistSymbols();
+        setWatchlistSymbols(symbols);
+
+        if (symbols.length > 0) {
+          const stockData = await StockService.getBatchQuotes(symbols);
+          setStocks(stockData);
+        }
+      } catch (error) {
+        console.error("Error fetching watchlist data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWatchlistData();
+
+    // Refresh data every 30 seconds
+    const intervalId = setInterval(async () => {
+      if (watchlistSymbols.length > 0) {
+        try {
+          const stockData = await StockService.getBatchQuotes(watchlistSymbols);
+          setStocks(stockData);
+        } catch (error) {
+          console.error("Error refreshing watchlist data:", error);
+        }
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [watchlistSymbols.length]);
+
+  const renderHeader = () => (
+    <ThemedView style={styles.header}>
+      <ThemedText style={styles.title}>My Watchlist</ThemedText>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => router.push("/explore")}
+      >
+        <IconSymbol name="plus" size={20} color="#fff" />
+      </TouchableOpacity>
+    </ThemedView>
+  );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <ThemedText style={styles.loadingText}>Loading stocks...</ThemedText>
+      </SafeAreaView>
+    );
+  }
+
+  if (stocks.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {renderHeader()}
+        <ThemedView style={styles.emptyContainer}>
+          <ThemedText style={styles.emptyText}>
+            Your watchlist is empty. Tap the + button to add stocks.
+          </ThemedText>
+          <TouchableOpacity
+            style={styles.exploreButton}
+            onPress={() => router.push("/explore")}
+          >
+            <ThemedText style={styles.exploreButtonText}>
+              Explore Stocks
+            </ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <SafeAreaView style={styles.container}>
+      <FlatList
+        data={stocks}
+        keyExtractor={(item) => item.symbol}
+        renderItem={({ item }) => (
+          <StockListItem
+            stock={item}
+            onPress={() => {
+              // Navigate to stock details (to be implemented)
+              // router.push(`/stock/${item.symbol}`);
+            }}
+          />
+        )}
+        ListHeaderComponent={renderHeader}
+        refreshing={isLoading}
+        onRefresh={async () => {
+          setIsLoading(true);
+          try {
+            const stockData = await StockService.getBatchQuotes(
+              watchlistSymbols
+            );
+            setStocks(stockData);
+          } catch (error) {
+            console.error("Error refreshing watchlist data:", error);
+          } finally {
+            setIsLoading(false);
+          }
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: "#2196F3",
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  exploreButton: {
+    backgroundColor: "#2196F3",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  exploreButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
