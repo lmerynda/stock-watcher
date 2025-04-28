@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { StockService } from "./StockService";
 
 // Define available data providers
 export enum DataProvider {
@@ -18,6 +19,8 @@ export const SettingsService = {
   setTiingoApiKey: async (apiKey: string): Promise<void> => {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.TIINGO_API_KEY, apiKey);
+      // Reset the provider after changing the API key
+      await StockService.resetProvider();
     } catch (error) {
       console.error("Error saving Tiingo API key:", error);
       throw error;
@@ -50,6 +53,8 @@ export const SettingsService = {
   setDataProvider: async (provider: DataProvider): Promise<void> => {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.DATA_PROVIDER, provider);
+      // Reset the provider after changing the data provider
+      await StockService.resetProvider();
     } catch (error) {
       console.error("Error saving data provider setting:", error);
       throw error;
