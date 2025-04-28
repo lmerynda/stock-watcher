@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StockData, StockService } from "@/services/StockService";
+import { StockData, StockService, stockEvents } from "@/services/StockService";
 import { StockListItem } from "@/components/stocks/StockListItem";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -39,6 +39,24 @@ export default function WatchlistScreen() {
     }
   };
 
+  // Function to refresh the watchlist data
+  const refreshWatchlistData = async (symbols: string[] = watchlistSymbols) => {
+    if (symbols.length === 0) {
+      setStocks([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const stockData = await StockService.getBatchQuotes(symbols);
+      setStocks(stockData);
+    } catch (error) {
+      console.error("Error refreshing watchlist data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Function to save watchlist symbols to storage
   const saveWatchlistSymbols = async (symbols: string[]) => {
     try {
@@ -57,43 +75,42 @@ export default function WatchlistScreen() {
     setWatchlistSymbols(updatedSymbols);
     await saveWatchlistSymbols(updatedSymbols);
     setStocks(stocks.filter((stock) => stock.symbol !== symbol));
+
+    // Emit event to notify other components
+    stockEvents.emit("watchlistUpdated", updatedSymbols);
   };
 
   // Load watchlist data
   useEffect(() => {
     const fetchWatchlistData = async () => {
-      setIsLoading(true);
-      try {
-        const symbols = await loadWatchlistSymbols();
-        setWatchlistSymbols(symbols);
-
-        if (symbols.length > 0) {
-          const stockData = await StockService.getBatchQuotes(symbols);
-          setStocks(stockData);
-        }
-      } catch (error) {
-        console.error("Error fetching watchlist data:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      const symbols = await loadWatchlistSymbols();
+      setWatchlistSymbols(symbols);
+      refreshWatchlistData(symbols);
     };
 
     fetchWatchlistData();
 
-    // Refresh data every 30 seconds
-    const intervalId = setInterval(async () => {
-      if (watchlistSymbols.length > 0) {
-        try {
-          const stockData = await StockService.getBatchQuotes(watchlistSymbols);
-          setStocks(stockData);
-        } catch (error) {
-          console.error("Error refreshing watchlist data:", error);
-        }
+    // Listen for watchlist updates from other screens
+    const watchlistUpdateListener = stockEvents.addListener(
+      "watchlistUpdated",
+      (symbols: string[]) => {
+        setWatchlistSymbols(symbols);
+        refreshWatchlistData(symbols);
       }
-    }, 30000);
+    );
 
-    return () => clearInterval(intervalId);
-  }, [watchlistSymbols.length]);
+    // Refresh data every 300 seconds
+    const intervalId = setInterval(() => {
+      if (watchlistSymbols.length > 0) {
+        refreshWatchlistData();
+      }
+    }, 300000);
+
+    return () => {
+      clearInterval(intervalId);
+      watchlistUpdateListener.removeAllListeners();
+    };
+  }, []);
 
   const renderHeader = () => (
     <ThemedView style={styles.header}>
@@ -153,19 +170,7 @@ export default function WatchlistScreen() {
         )}
         ListHeaderComponent={renderHeader}
         refreshing={isLoading}
-        onRefresh={async () => {
-          setIsLoading(true);
-          try {
-            const stockData = await StockService.getBatchQuotes(
-              watchlistSymbols
-            );
-            setStocks(stockData);
-          } catch (error) {
-            console.error("Error refreshing watchlist data:", error);
-          } finally {
-            setIsLoading(false);
-          }
-        }}
+        onRefresh={() => refreshWatchlistData()}
       />
     </SafeAreaView>
   );

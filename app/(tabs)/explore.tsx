@@ -3,7 +3,7 @@ import { StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StockSearch } from "@/components/stocks/StockSearch";
 import { StockCard } from "@/components/stocks/StockCard";
-import { StockData } from "@/services/StockService";
+import { StockData, stockEvents } from "@/services/StockService";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -38,6 +38,9 @@ export default function ExploreScreen() {
         WATCHLIST_STORAGE_KEY,
         JSON.stringify(watchlistSymbols)
       );
+
+      // Emit an event to notify the watchlist screen
+      stockEvents.emit('watchlistUpdated', watchlistSymbols);
 
       Alert.alert(
         "Added to Watchlist",
