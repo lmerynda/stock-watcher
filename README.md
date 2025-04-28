@@ -37,7 +37,7 @@ A React Native mobile app for tracking stock prices and managing your personal w
 
 ## Demo Mode
 
-This app uses simulated stock data rather than live API calls. This is because the Yahoo Finance API has CORS restrictions that prevent it from being used directly in browser/mobile environments.
+This app runs in demo mode by default using simulated stock data rather than live API calls. You can switch to live data by providing your Tiingo API key in the Settings screen.
 
 Available mock stocks in the demo:
 - AAPL (Apple)
