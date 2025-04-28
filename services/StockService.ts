@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { SettingsService } from './SettingsService';
+import { SettingsService, DataProvider } from './SettingsService';
 import { EventEmitter } from 'events';
 
 // Add an event emitter to notify components about watchlist changes
@@ -15,8 +15,8 @@ export interface StockData {
   marketCap?: number;
 }
 
-// Fallback data for when API key is not set
-const SAMPLE_STOCKS: Record<string, StockData> = {
+// Enhanced dummy data with 3 popular stocks and more realistic data
+const DUMMY_STOCKS: Record<string, StockData> = {
   'AAPL': {
     symbol: 'AAPL',
     name: 'Apple Inc.',
@@ -35,8 +35,19 @@ const SAMPLE_STOCKS: Record<string, StockData> = {
     volume: 22145678,
     marketCap: 3100000000000,
   },
-  // Just keeping two sample stocks for fallback
+  'GOOGL': {
+    symbol: 'GOOGL', 
+    name: 'Alphabet Inc.',
+    price: 176.92,
+    change: -1.23,
+    changePercent: -0.69,
+    volume: 15234567,
+    marketCap: 2200000000000,
+  },
 };
+
+// Fallback data for when API key is not set - Keep backward compatibility
+const SAMPLE_STOCKS = DUMMY_STOCKS;
 
 /**
  * Creates Tiingo API URL with authentication
@@ -68,24 +79,40 @@ const formatTiingoQuote = (data: any, details?: any): StockData => {
   };
 };
 
-export const StockService = {
-  /**
-   * Search for stocks by a query string
-   */
+/**
+ * Dummy Stock Provider implementation
+ */
+const DummyStockProvider = {
+  searchStocks: async (query: string): Promise<StockData[]> => {
+    console.log('Using dummy data provider for search:', query);
+    
+    // Return filtered dummy data
+    return Object.values(DUMMY_STOCKS)
+      .filter(stock => 
+        stock.symbol.toUpperCase().includes(query.toUpperCase()) || 
+        stock.name.toUpperCase().includes(query.toUpperCase())
+      );
+  },
+  
+  getStockQuote: async (symbol: string): Promise<StockData | null> => {
+    console.log('Using dummy data provider for quote:', symbol);
+    return DUMMY_STOCKS[symbol.toUpperCase()] || null;
+  },
+  
+  getBatchQuotes: async (symbols: string[]): Promise<StockData[]> => {
+    console.log('Using dummy data provider for batch quotes:', symbols);
+    return symbols
+      .map(symbol => DUMMY_STOCKS[symbol.toUpperCase()])
+      .filter((stock): stock is StockData => stock !== undefined);
+  }
+};
+
+/**
+ * Tiingo Stock Provider implementation
+ */
+const TiingoStockProvider = {
   searchStocks: async (query: string): Promise<StockData[]> => {
     try {
-      const hasApiKey = await SettingsService.hasTiingoApiKey();
-      
-      if (!hasApiKey) {
-        console.log('No API key set, using sample data');
-        // Return filtered mock data if no API key is set
-        return Object.values(SAMPLE_STOCKS)
-          .filter(stock => 
-            stock.symbol.includes(query.toUpperCase()) || 
-            stock.name.toUpperCase().includes(query.toUpperCase())
-          );
-      }
-
       // Create URL for Tiingo search
       const url = await createTiingoUrl(`tiingo/utilities/search?query=${encodeURIComponent(query)}`);
       if (!url) throw new Error('Could not create API URL');
@@ -132,19 +159,9 @@ export const StockService = {
       return [];
     }
   },
-
-  /**
-   * Get detailed stock information for a symbol
-   */
+  
   getStockQuote: async (symbol: string): Promise<StockData | null> => {
     try {
-      const hasApiKey = await SettingsService.hasTiingoApiKey();
-      
-      if (!hasApiKey) {
-        console.log('No API key set, using sample data');
-        return SAMPLE_STOCKS[symbol.toUpperCase()] || null;
-      }
-
       // Get stock quote from Tiingo
       const quoteUrl = await createTiingoUrl(`iex/${symbol}`);
       if (!quoteUrl) throw new Error('Could not create quote URL');
@@ -168,27 +185,98 @@ export const StockService = {
       return null;
     }
   },
+  
+  getBatchQuotes: async (symbols: string[]): Promise<StockData[]> => {
+    try {
+      // Fetch data for all symbols in parallel
+      const promises = symbols.map(symbol => TiingoStockProvider.getStockQuote(symbol));
+      const results = await Promise.all(promises);
+      
+      // Filter out any failed requests (null responses)
+      return results.filter((stock): stock is StockData => stock !== null);
+    } catch (error) {
+      console.error('Error fetching batch quotes:', error);
+      return [];
+    }
+  }
+};
+
+export const StockService = {
+  /**
+   * Search for stocks by a query string
+   */
+  searchStocks: async (query: string): Promise<StockData[]> => {
+    try {
+      // Check which data provider to use
+      const isUsingDummy = await SettingsService.isUsingDummyProvider();
+      
+      // If using Tiingo provider, check if API key is set
+      const isTiingo = !isUsingDummy;
+      if (isTiingo) {
+        const hasApiKey = await SettingsService.hasTiingoApiKey();
+        if (!hasApiKey) {
+          console.log('No Tiingo API key set, using dummy data');
+          return DummyStockProvider.searchStocks(query);
+        }
+        return TiingoStockProvider.searchStocks(query);
+      }
+      
+      // Using dummy provider
+      return DummyStockProvider.searchStocks(query);
+    } catch (error) {
+      console.error('Error searching stocks:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Get detailed stock information for a symbol
+   */
+  getStockQuote: async (symbol: string): Promise<StockData | null> => {
+    try {
+      // Check which data provider to use
+      const isUsingDummy = await SettingsService.isUsingDummyProvider();
+      
+      // If using Tiingo provider, check if API key is set
+      const isTiingo = !isUsingDummy;
+      if (isTiingo) {
+        const hasApiKey = await SettingsService.hasTiingoApiKey();
+        if (!hasApiKey) {
+          console.log('No Tiingo API key set, using dummy data');
+          return DummyStockProvider.getStockQuote(symbol);
+        }
+        return TiingoStockProvider.getStockQuote(symbol);
+      }
+      
+      // Using dummy provider
+      return DummyStockProvider.getStockQuote(symbol);
+    } catch (error) {
+      console.error(`Error fetching stock data for ${symbol}:`, error);
+      return null;
+    }
+  },
 
   /**
    * Get quotes for multiple stock symbols at once
    */
   getBatchQuotes: async (symbols: string[]): Promise<StockData[]> => {
     try {
-      const hasApiKey = await SettingsService.hasTiingoApiKey();
+      // Check which data provider to use
+      const isUsingDummy = await SettingsService.isUsingDummyProvider();
       
-      if (!hasApiKey) {
-        console.log('No API key set, using sample data');
-        return symbols
-          .map(symbol => SAMPLE_STOCKS[symbol.toUpperCase()])
-          .filter((stock): stock is StockData => stock !== undefined);
+      // If using Tiingo provider, check if API key is set
+      const isTiingo = !isUsingDummy;
+      if (isTiingo) {
+        const hasApiKey = await SettingsService.hasTiingoApiKey();
+        if (!hasApiKey) {
+          console.log('No Tiingo API key set, using dummy data');
+          return DummyStockProvider.getBatchQuotes(symbols);
+        }
+        return TiingoStockProvider.getBatchQuotes(symbols);
       }
-
-      // Fetch data for all symbols in parallel
-      const promises = symbols.map(symbol => StockService.getStockQuote(symbol));
-      const results = await Promise.all(promises);
       
-      // Filter out any failed requests (null responses)
-      return results.filter((stock): stock is StockData => stock !== null);
+      // Using dummy provider
+      return DummyStockProvider.getBatchQuotes(symbols);
     } catch (error) {
       console.error('Error fetching batch quotes:', error);
       return [];

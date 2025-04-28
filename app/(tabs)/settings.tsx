@@ -9,17 +9,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { SettingsService } from "@/services/SettingsService";
+import { SettingsService, DataProvider } from "@/services/SettingsService";
 
 export default function SettingsScreen() {
   const [apiKey, setApiKey] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [useDummyData, setUseDummyData] = useState(false);
 
   const inputBackground = useThemeColor(
     { light: "#f1f1f1", dark: "#333333" },
@@ -34,22 +36,26 @@ export default function SettingsScreen() {
     "text"
   );
 
-  // Load the current API key
+  // Load the current settings
   useEffect(() => {
-    const loadApiKey = async () => {
+    const loadSettings = async () => {
       try {
         const key = await SettingsService.getTiingoApiKey();
         if (key) {
           setApiKey(key);
         }
+
+        // Load data provider setting
+        const isUsingDummy = await SettingsService.isUsingDummyProvider();
+        setUseDummyData(isUsingDummy);
       } catch (error) {
-        console.error("Error loading API key:", error);
+        console.error("Error loading settings:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadApiKey();
+    loadSettings();
   }, []);
 
   const handleSaveApiKey = async () => {
@@ -79,6 +85,32 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleToggleDummyData = async (value: boolean) => {
+    try {
+      // Update UI immediately for responsiveness
+      setUseDummyData(value);
+
+      // Save the setting
+      const provider = value ? DataProvider.DUMMY : DataProvider.TIINGO;
+      await SettingsService.setDataProvider(provider);
+
+      Alert.alert(
+        "Data Provider Changed",
+        value
+          ? "Using dummy data with fixed values. No API calls will be made."
+          : "Using Tiingo API for live stock data."
+      );
+    } catch (error) {
+      console.error("Error saving data provider setting:", error);
+      // Revert UI state if save failed
+      setUseDummyData(!value);
+      Alert.alert(
+        "Error",
+        "There was a problem saving your data provider setting."
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -91,7 +123,33 @@ export default function SettingsScreen() {
           </ThemedView>
 
           <ThemedView style={styles.content}>
-            <ThemedText style={styles.sectionTitle}>Tiingo API</ThemedText>
+            {/* Data Provider Settings */}
+            <ThemedText style={styles.sectionTitle}>Data Provider</ThemedText>
+            <ThemedView style={styles.settingRow}>
+              <ThemedText style={styles.settingLabel}>
+                Use Dummy Data
+              </ThemedText>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#2196F3" />
+              ) : (
+                <Switch
+                  value={useDummyData}
+                  onValueChange={handleToggleDummyData}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={useDummyData ? "#2196F3" : "#f4f3f4"}
+                />
+              )}
+            </ThemedView>
+            <ThemedText style={styles.settingDescription}>
+              {useDummyData
+                ? "Using dummy data with AAPL, MSFT, and GOOGL stocks. No API calls will be made."
+                : "Using Tiingo API for live stock data. API key required."}
+            </ThemedText>
+
+            {/* API Key Settings */}
+            <ThemedText style={[styles.sectionTitle, { marginTop: 24 }]}>
+              Tiingo API
+            </ThemedText>
             <ThemedText style={styles.description}>
               Stock Watcher uses Tiingo to fetch real-time market data. Enter
               your Tiingo API key below to enable live market data.
@@ -102,7 +160,11 @@ export default function SettingsScreen() {
               <ActivityIndicator size="small" color="#2196F3" />
             ) : (
               <TextInput
-                style={[styles.input, { backgroundColor: inputBackground }]}
+                style={[
+                  styles.input,
+                  { backgroundColor: inputBackground },
+                  useDummyData && styles.disabledInput,
+                ]}
                 value={apiKey}
                 onChangeText={setApiKey}
                 placeholder="Enter your Tiingo API key"
@@ -110,13 +172,18 @@ export default function SettingsScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry={false}
+                editable={!useDummyData}
               />
             )}
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: buttonBackground }]}
+              style={[
+                styles.button,
+                { backgroundColor: buttonBackground },
+                useDummyData && styles.disabledButton,
+              ]}
               onPress={handleSaveApiKey}
-              disabled={isSaving}
+              disabled={isSaving || useDummyData}
             >
               {isSaving ? (
                 <ActivityIndicator size="small" color="#fff" />
@@ -205,5 +272,26 @@ const styles = StyleSheet.create({
   },
   link: {
     textDecorationLine: "underline",
+  },
+  settingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  settingDescription: {
+    fontSize: 14,
+    marginBottom: 16,
+    color: "#777",
+  },
+  disabledInput: {
+    opacity: 0.5,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
