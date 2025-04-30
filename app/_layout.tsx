@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { OptionsVolumeService } from '@/services/OptionsVolumeService';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -20,6 +21,18 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      
+      // Initialize the options volume background task service when app loads
+      const initializeBackgroundTasks = async () => {
+        try {
+          await OptionsVolumeService.initialize();
+          console.log('Options volume background task service initialized');
+        } catch (error) {
+          console.error('Error initializing options volume service:', error);
+        }
+      };
+      
+      initializeBackgroundTasks();
     }
   }, [loaded]);
 
