@@ -1,64 +1,82 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  ActivityIndicator, 
-  FlatList, 
-  TouchableOpacity, 
-  View, 
+import React, { useEffect, useState } from "react";
+import {
+  StyleSheet,
+  ActivityIndicator,
+  FlatList,
+  TouchableOpacity,
+  View,
   TextInput,
   Alert,
-  RefreshControl
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import { OptionsVolumeService, optionsEvents } from '@/services/OptionsVolumeService';
-import { OptionsVolumeData } from '@/services/providers/OptionsVolumeProvider';
-import { SettingsService } from '@/services/SettingsService';
+  RefreshControl,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import {
+  OptionsVolumeService,
+  optionsEvents,
+} from "@/services/OptionsVolumeService";
+import { OptionsVolumeData } from "@/services/providers/OptionsVolumeProvider";
+import { SettingsService } from "@/services/SettingsService";
 
 export default function OptionsVolumeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [optionsData, setOptionsData] = useState<OptionsVolumeData[]>([]);
   const [watchedSymbols, setWatchedSymbols] = useState<string[]>([]);
-  const [newSymbol, setNewSymbol] = useState('');
+  const [newSymbol, setNewSymbol] = useState("");
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isEnabled, setIsEnabled] = useState(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState(new Date());
 
-  const inputBackground = useThemeColor({ light: '#f1f1f1', dark: '#333333' }, 'background');
-  const cardBackground = useThemeColor({ light: '#ffffff', dark: '#1c1c1c' }, 'background');
-  const buttonBackground = useThemeColor({ light: '#2196F3', dark: '#2196F3' }, 'background');
-  const textColor = useThemeColor({ light: '#000000', dark: '#ffffff' }, 'text');
-  const accentColor = useThemeColor({ light: '#2196F3', dark: '#2196F3' }, 'text');
+  const inputBackground = useThemeColor(
+    { light: "#f1f1f1", dark: "#333333" },
+    "background"
+  );
+  const cardBackground = useThemeColor(
+    { light: "#ffffff", dark: "#1c1c1c" },
+    "background"
+  );
+  const buttonBackground = useThemeColor(
+    { light: "#2196F3", dark: "#2196F3" },
+    "background"
+  );
+  const textColor = useThemeColor(
+    { light: "#000000", dark: "#ffffff" },
+    "text"
+  );
+  const accentColor = useThemeColor(
+    { light: "#2196F3", dark: "#2196F3" },
+    "text"
+  );
 
   // Load data when the component mounts
   useEffect(() => {
     loadOptionsData();
-    
+
     // Set up event listener for data updates
     const handleDataUpdate = (data: OptionsVolumeData[]) => {
       setOptionsData(data);
       setLastUpdate(new Date());
     };
-    
+
     // Subscribe to options data updates using the exposed event emitter
-    optionsEvents.addListener('options-data-updated', handleDataUpdate);
-    
+    optionsEvents.addListener("options-data-updated", handleDataUpdate);
+
     // Clean up listener when component unmounts
     return () => {
-      optionsEvents.removeListener('options-data-updated', handleDataUpdate);
+      optionsEvents.removeListener("options-data-updated", handleDataUpdate);
     };
   }, []);
 
   useEffect(() => {
     setLastUpdatedTime(new Date());
-    
+
     const intervalId = setInterval(() => {
       setLastUpdatedTime(new Date());
     }, 60000);
-    
+
     return () => clearInterval(intervalId);
   }, []);
 
@@ -68,23 +86,23 @@ export default function OptionsVolumeScreen() {
       // Get background task state
       const enabled = await SettingsService.isOptionsVolumeEnabled();
       setIsEnabled(enabled);
-      
+
       // Get watched symbols
       const symbols = await OptionsVolumeService.getWatchedSymbols();
       setWatchedSymbols(symbols);
-      
+
       // Get cached options data
       const data = await OptionsVolumeService.getOptionsData();
       setOptionsData(data);
-      
+
       // Get last update time
       const lastUpdateTime = await OptionsVolumeService.getLastUpdateTime();
       if (lastUpdateTime > 0) {
         setLastUpdate(new Date(lastUpdateTime));
       }
     } catch (error) {
-      console.error('Error loading options volume data:', error);
-      Alert.alert('Error', 'Failed to load options volume data');
+      console.error("Error loading options volume data:", error);
+      Alert.alert("Error", "Failed to load options volume data");
     } finally {
       setIsLoading(false);
     }
@@ -94,12 +112,12 @@ export default function OptionsVolumeScreen() {
     setIsRefreshing(true);
     try {
       await OptionsVolumeService.fetchOptionsVolumeData();
-      
+
       // Reload all data to ensure everything is in sync
       await loadOptionsData();
     } catch (error) {
-      console.error('Error refreshing options volume data:', error);
-      Alert.alert('Error', 'Failed to refresh options volume data');
+      console.error("Error refreshing options volume data:", error);
+      Alert.alert("Error", "Failed to refresh options volume data");
     } finally {
       setIsRefreshing(false);
     }
@@ -110,23 +128,23 @@ export default function OptionsVolumeScreen() {
       const newState = !isEnabled;
       await SettingsService.setOptionsVolumeEnabled(newState);
       setIsEnabled(newState);
-      
+
       if (newState) {
         Alert.alert(
-          'Background Updates Enabled',
-          'Options volume data will be updated every hour in the background.'
+          "Background Updates Enabled",
+          "Options volume data will be updated every hour in the background."
         );
         // Force an immediate update when enabled
         handleRefresh();
       } else {
         Alert.alert(
-          'Background Updates Disabled',
-          'Options volume data will no longer be updated automatically.'
+          "Background Updates Disabled",
+          "Options volume data will no longer be updated automatically."
         );
       }
     } catch (error) {
-      console.error('Error toggling background updates:', error);
-      Alert.alert('Error', 'Failed to change background update settings');
+      console.error("Error toggling background updates:", error);
+      Alert.alert("Error", "Failed to change background update settings");
     }
   };
 
@@ -134,47 +152,47 @@ export default function OptionsVolumeScreen() {
     if (!newSymbol.trim()) {
       return;
     }
-    
+
     const symbol = newSymbol.trim().toUpperCase();
-    
+
     if (watchedSymbols.includes(symbol)) {
       Alert.alert(
-        'Symbol Already Added',
+        "Symbol Already Added",
         `${symbol} is already in your watched list.`
       );
       return;
     }
-    
+
     try {
       await OptionsVolumeService.addWatchedSymbol(symbol);
-      
+
       // Update UI
       setWatchedSymbols([...watchedSymbols, symbol]);
-      setNewSymbol('');
-      
+      setNewSymbol("");
+
       // Trigger a refresh to get data for the new symbol
       handleRefresh();
     } catch (error) {
-      console.error('Error adding symbol:', error);
+      console.error("Error adding symbol:", error);
       Alert.alert(
-        'Error',
-        'There was a problem adding the symbol to your watched list.'
+        "Error",
+        "There was a problem adding the symbol to your watched list."
       );
     }
   };
-  
+
   const handleRemoveSymbol = async (symbol: string) => {
     try {
       await OptionsVolumeService.removeWatchedSymbol(symbol);
-      
+
       // Update UI
-      setWatchedSymbols(watchedSymbols.filter(s => s !== symbol));
-      setOptionsData(optionsData.filter(data => data.symbol !== symbol));
+      setWatchedSymbols(watchedSymbols.filter((s) => s !== symbol));
+      setOptionsData(optionsData.filter((data) => data.symbol !== symbol));
     } catch (error) {
-      console.error('Error removing symbol:', error);
+      console.error("Error removing symbol:", error);
       Alert.alert(
-        'Error',
-        'There was a problem removing the symbol from your watched list.'
+        "Error",
+        "There was a problem removing the symbol from your watched list."
       );
     }
   };
@@ -182,9 +200,11 @@ export default function OptionsVolumeScreen() {
   const renderOptionsVolumeItem = ({ item }: { item: OptionsVolumeData }) => {
     const updateTime = new Date(item.timestamp);
     const timeAgo = getTimeAgo(updateTime, lastUpdatedTime);
-    
+
     return (
-      <ThemedView style={[styles.optionsCard, { backgroundColor: cardBackground }]}>
+      <ThemedView
+        style={[styles.optionsCard, { backgroundColor: cardBackground }]}
+      >
         <View style={styles.optionsCardHeader}>
           <ThemedText style={styles.symbolText}>{item.symbol}</ThemedText>
           <TouchableOpacity
@@ -194,39 +214,58 @@ export default function OptionsVolumeScreen() {
             <ThemedText style={styles.removeButtonText}>✕</ThemedText>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.optionsDataRow}>
           <ThemedText style={styles.optionsLabel}>Call Volume:</ThemedText>
-          <ThemedText style={styles.optionsValue}>{item.callVolume.toLocaleString()}</ThemedText>
+          <ThemedText style={styles.optionsValue}>
+            {item.callVolume.toLocaleString()}
+          </ThemedText>
         </View>
-        
+
         <View style={styles.optionsDataRow}>
           <ThemedText style={styles.optionsLabel}>Put Volume:</ThemedText>
-          <ThemedText style={styles.optionsValue}>{item.putVolume.toLocaleString()}</ThemedText>
+          <ThemedText style={styles.optionsValue}>
+            {item.putVolume.toLocaleString()}
+          </ThemedText>
         </View>
-        
+
         <View style={styles.optionsDataRow}>
           <ThemedText style={styles.optionsLabel}>Call/Put Ratio:</ThemedText>
-          <ThemedText 
+          <ThemedText
             style={[
-              styles.optionsValue, 
-              { color: item.callPutRatio > 1.5 ? '#4caf50' : item.callPutRatio < 0.75 ? '#f44336' : textColor }
+              styles.optionsValue,
+              {
+                color:
+                  item.callPutRatio > 1.5
+                    ? "#4caf50"
+                    : item.callPutRatio < 0.75
+                    ? "#f44336"
+                    : textColor,
+              },
             ]}
           >
             {item.callPutRatio.toFixed(2)}
           </ThemedText>
         </View>
-        
+
         <View style={styles.optionsDataRow}>
-          <ThemedText style={styles.optionsLabel}>Open Interest (Calls):</ThemedText>
-          <ThemedText style={styles.optionsValue}>{item.callOpenInterest.toLocaleString()}</ThemedText>
+          <ThemedText style={styles.optionsLabel}>
+            Open Interest (Calls):
+          </ThemedText>
+          <ThemedText style={styles.optionsValue}>
+            {item.callOpenInterest.toLocaleString()}
+          </ThemedText>
         </View>
-        
+
         <View style={styles.optionsDataRow}>
-          <ThemedText style={styles.optionsLabel}>Open Interest (Puts):</ThemedText>
-          <ThemedText style={styles.optionsValue}>{item.putOpenInterest.toLocaleString()}</ThemedText>
+          <ThemedText style={styles.optionsLabel}>
+            Open Interest (Puts):
+          </ThemedText>
+          <ThemedText style={styles.optionsValue}>
+            {item.putOpenInterest.toLocaleString()}
+          </ThemedText>
         </View>
-        
+
         <ThemedText style={styles.timeAgoText}>Updated {timeAgo}</ThemedText>
       </ThemedView>
     );
@@ -237,17 +276,17 @@ export default function OptionsVolumeScreen() {
     const diffSec = Math.round(diffMs / 1000);
     const diffMin = Math.round(diffSec / 60);
     const diffHour = Math.round(diffMin / 60);
-    
+
     if (diffSec < 60) {
-      return `${diffSec} second${diffSec !== 1 ? 's' : ''} ago`;
+      return `${diffSec} second${diffSec !== 1 ? "s" : ""} ago`;
     }
     if (diffMin < 60) {
-      return `${diffMin} minute${diffMin !== 1 ? 's' : ''} ago`;
+      return `${diffMin} minute${diffMin !== 1 ? "s" : ""} ago`;
     }
     if (diffHour < 24) {
-      return `${diffHour} hour${diffHour !== 1 ? 's' : ''} ago`;
+      return `${diffHour} hour${diffHour !== 1 ? "s" : ""} ago`;
     }
-    
+
     return date.toLocaleDateString();
   };
 
@@ -282,12 +321,12 @@ export default function OptionsVolumeScreen() {
         <TouchableOpacity
           style={[
             styles.toggleButton,
-            { backgroundColor: isEnabled ? '#4caf50' : '#f44336' }
+            { backgroundColor: isEnabled ? "#4caf50" : "#f44336" },
           ]}
           onPress={handleToggleBackground}
         >
           <ThemedText style={styles.toggleButtonText}>
-            {isEnabled ? 'Background Updates: ON' : 'Background Updates: OFF'}
+            {isEnabled ? "Background Updates: ON" : "Background Updates: OFF"}
           </ThemedText>
         </TouchableOpacity>
 
@@ -303,7 +342,7 @@ export default function OptionsVolumeScreen() {
           <TextInput
             style={[
               styles.symbolInput,
-              { backgroundColor: inputBackground, color: textColor }
+              { backgroundColor: inputBackground, color: textColor },
             ]}
             value={newSymbol}
             onChangeText={setNewSymbol}
@@ -316,7 +355,7 @@ export default function OptionsVolumeScreen() {
             style={[
               styles.addButton,
               { backgroundColor: buttonBackground },
-              !newSymbol.trim() && styles.disabledButton
+              !newSymbol.trim() && styles.disabledButton,
             ]}
             onPress={handleAddSymbol}
             disabled={!newSymbol.trim()}
@@ -329,7 +368,9 @@ export default function OptionsVolumeScreen() {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={accentColor} />
-            <ThemedText style={styles.loadingText}>Loading options data...</ThemedText>
+            <ThemedText style={styles.loadingText}>
+              Loading options data...
+            </ThemedText>
           </View>
         ) : (
           <FlatList
@@ -363,7 +404,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   content: {
     flex: 1,
@@ -373,21 +414,21 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   toggleButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 16,
   },
   lastUpdateText: {
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
     fontSize: 14,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   addSymbolRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 16,
   },
   symbolInput: {
@@ -402,13 +443,13 @@ const styles = StyleSheet.create({
     width: 80,
     height: 48,
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   listContent: {
     flexGrow: 1,
@@ -419,41 +460,41 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   optionsCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    borderBottomColor: "rgba(0, 0, 0, 0.1)",
     paddingBottom: 8,
   },
   symbolText: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   removeButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#ff6b6b',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#ff6b6b",
+    justifyContent: "center",
+    alignItems: "center",
   },
   removeButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   optionsDataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   optionsLabel: {
@@ -462,19 +503,19 @@ const styles = StyleSheet.create({
   },
   optionsValue: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   timeAgoText: {
     fontSize: 12,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     opacity: 0.6,
     marginTop: 8,
-    textAlign: 'right',
+    textAlign: "right",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 12,
@@ -482,18 +523,18 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 32,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   emptyDescription: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     opacity: 0.7,
   },
   disabledButton: {
