@@ -2,6 +2,8 @@ import { EventEmitter } from 'events';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OptionsVolumeProvider, OptionsVolumeData } from './providers/OptionsVolumeProvider';
 import { SettingsService, settingsEvents } from './SettingsService';
+import { dbService } from './DatabaseService';
+import { NotificationService } from './NotificationService';
 
 // Add an event emitter to notify components about new options volume data
 export const optionsEvents = new EventEmitter();
@@ -11,11 +13,11 @@ const STORAGE_KEYS = {
   WATCHED_SYMBOLS: 'options_watched_symbols',
   BACKGROUND_ENABLED: 'options_background_enabled',
   LAST_UPDATE: 'options_last_update',
-  OPTIONS_DATA: 'options_data',
+  NOTIFICATIONS_ENABLED: 'options_notifications_enabled',
 };
 
-// Default interval in milliseconds (15 minutes)
-const DEFAULT_INTERVAL = 15 * 60 * 1000;
+// Default interval in milliseconds (10 minutes for time series data)
+const DEFAULT_INTERVAL = 1 * 60 * 1000;
 
 /**
  * Service for managing options volume data and background tasks
@@ -25,6 +27,7 @@ export const OptionsVolumeService = (() => {
   let _provider: OptionsVolumeProvider | null = null;
   let _isInitialized = false;
   let _backgroundTimerId: NodeJS.Timeout | null = null;
+  let _notificationsPermissionGranted = false;
   
   // Initialize provider
   const getProvider = (): OptionsVolumeProvider => {
@@ -39,8 +42,14 @@ export const OptionsVolumeService = (() => {
    */
   const initialize = async (): Promise<void> => {
     if (!_isInitialized) {
-      // Get provider
+      // Initialize provider
       getProvider();
+      
+      // Initialize database
+      await dbService.initialize();
+      
+      // Request notification permissions
+      _notificationsPermissionGranted = await NotificationService.requestPermissions();
       
       // Check if background fetch is enabled and start it if needed
       const isEnabled = await isBackgroundEnabled();
@@ -50,6 +59,9 @@ export const OptionsVolumeService = (() => {
       
       // Set up listeners for settings changes
       setupSettingsListeners();
+      
+      // Schedule daily purge of old data
+      scheduleDataPurge();
       
       _isInitialized = true;
     }
@@ -71,8 +83,6 @@ export const OptionsVolumeService = (() => {
     // Listen for changes to update interval
     settingsEvents.on('options-update-interval-changed', async () => {
       // Restart the background fetch with the new interval
-      // Currently using fixed interval, but this would restart with new interval
-      // if we implemented variable intervals
       const isEnabled = await isBackgroundEnabled();
       if (isEnabled) {
         stopBackgroundFetch();
@@ -96,12 +106,12 @@ export const OptionsVolumeService = (() => {
     // Set up immediate first fetch
     fetchOptionsVolumeData();
     
-    // Set up interval for future fetches (every hour)
+    // Set up interval for future fetches (every 10 minutes)
     _backgroundTimerId = setInterval(() => {
       fetchOptionsVolumeData();
     }, DEFAULT_INTERVAL);
     
-    console.log('Started background fetch for options volume data');
+    console.log('Started background fetch for options volume data (every 10 minutes)');
   };
   
   /**
@@ -115,6 +125,34 @@ export const OptionsVolumeService = (() => {
     }
   };
   
+  /**
+   * Schedule daily purge of old data (older than 7 days)
+   */
+  const scheduleDataPurge = (): void => {
+    // Run once a day at midnight
+    const now = new Date();
+    const night = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1, // tomorrow
+      0, 0, 0 // midnight
+    );
+    const timeToMidnight = night.getTime() - now.getTime();
+    
+    // Schedule first purge for midnight
+    setTimeout(() => {
+      // Purge old data
+      dbService.purgeOldData();
+      
+      // Then schedule to run every 24 hours
+      setInterval(() => {
+        dbService.purgeOldData();
+      }, 24 * 60 * 60 * 1000);
+    }, timeToMidnight);
+    
+    console.log(`Scheduled daily data purge to run in ${Math.round(timeToMidnight / 3600000)} hours`);
+  };
+
   /**
    * Fetch options volume data for watched symbols
    */
@@ -130,14 +168,22 @@ export const OptionsVolumeService = (() => {
       const provider = getProvider();
       const data = await provider.getBatchOptionsVolume(symbols);
       
-      // Save data
-      await saveOptionsData(data);
+      // Save data to SQLite database
+      await dbService.saveOptionsVolumeBatch(data);
       
       // Emit event to notify components
       optionsEvents.emit('options-data-updated', data);
       
       // Update last fetch time
       await AsyncStorage.setItem(STORAGE_KEYS.LAST_UPDATE, Date.now().toString());
+      
+      // Check for alert conditions if notifications are enabled
+      const notificationsEnabled = await areNotificationsEnabled();
+      if (notificationsEnabled && _notificationsPermissionGranted) {
+        for (const symbol of symbols) {
+          await NotificationService.checkVolumeAlerts(symbol);
+        }
+      }
       
       console.log(`Successfully fetched options volume data for ${data.length} symbols`);
     } catch (error) {
@@ -168,12 +214,11 @@ export const OptionsVolumeService = (() => {
       const data = await provider.getOptionsVolume(symbol);
       
       if (data) {
-        // Add to stored data
-        const allData = await getOptionsData();
-        allData.push(data);
-        await saveOptionsData(allData);
+        // Save to database
+        await dbService.saveOptionsVolumeData(data);
         
-        // Emit event
+        // Emit event with latest data for all symbols
+        const allData = await getLatestOptionsData();
         optionsEvents.emit('options-data-updated', allData);
       }
     } catch (error) {
@@ -194,13 +239,9 @@ export const OptionsVolumeService = (() => {
       // Save updated list
       await AsyncStorage.setItem(STORAGE_KEYS.WATCHED_SYMBOLS, JSON.stringify(newSymbols));
       
-      // Remove from stored data
-      const allData = await getOptionsData();
-      const newData = allData.filter(data => data.symbol !== symbol);
-      await saveOptionsData(newData);
-      
-      // Emit event
-      optionsEvents.emit('options-data-updated', newData);
+      // Get and emit latest data for remaining symbols
+      const allData = await getLatestOptionsData();
+      optionsEvents.emit('options-data-updated', allData);
     } catch (error) {
       console.error(`Error removing watched symbol ${symbol}:`, error);
     }
@@ -220,25 +261,45 @@ export const OptionsVolumeService = (() => {
   };
   
   /**
-   * Save options volume data
+   * Get latest options data for all watched symbols
    */
-  const saveOptionsData = async (data: OptionsVolumeData[]): Promise<void> => {
+  const getLatestOptionsData = async (): Promise<OptionsVolumeData[]> => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.OPTIONS_DATA, JSON.stringify(data));
+      const symbols = await getWatchedSymbols();
+      const endTime = Date.now();
+      const startTime = endTime - DEFAULT_INTERVAL; // Only get most recent data
+      
+      const allData: OptionsVolumeData[] = [];
+      
+      for (const symbol of symbols) {
+        const data = await dbService.getOptionsVolumeHistory(symbol, startTime, endTime);
+        if (data.length > 0) {
+          // Get the most recent data point
+          allData.push(data[data.length - 1]);
+        }
+      }
+      
+      return allData;
     } catch (error) {
-      console.error('Error saving options data:', error);
+      console.error('Error getting latest options data:', error);
+      return [];
     }
   };
   
   /**
-   * Get stored options volume data
+   * Get historical options data for a symbol
    */
-  const getOptionsData = async (): Promise<OptionsVolumeData[]> => {
+  const getOptionsVolumeHistory = async (
+    symbol: string,
+    days: number = 1
+  ): Promise<OptionsVolumeData[]> => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.OPTIONS_DATA);
-      return data ? JSON.parse(data) : [];
+      const endTime = Date.now();
+      const startTime = endTime - (days * 24 * 60 * 60 * 1000);
+      
+      return await dbService.getOptionsVolumeHistory(symbol, startTime, endTime);
     } catch (error) {
-      console.error('Error getting options data:', error);
+      console.error(`Error getting options volume history for ${symbol}:`, error);
       return [];
     }
   };
@@ -274,6 +335,35 @@ export const OptionsVolumeService = (() => {
   };
   
   /**
+   * Enable or disable notifications
+   */
+  const setNotificationsEnabled = async (enabled: boolean): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, enabled.toString());
+      
+      // Request permissions if enabling notifications
+      if (enabled) {
+        _notificationsPermissionGranted = await NotificationService.requestPermissions();
+      }
+    } catch (error) {
+      console.error('Error setting notifications enabled:', error);
+    }
+  };
+  
+  /**
+   * Check if notifications are enabled
+   */
+  const areNotificationsEnabled = async (): Promise<boolean> => {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED);
+      return value === 'true';
+    } catch (error) {
+      console.error('Error checking if notifications are enabled:', error);
+      return false;
+    }
+  };
+  
+  /**
    * Get the last update time
    */
   const getLastUpdateTime = async (): Promise<number> => {
@@ -295,10 +385,12 @@ export const OptionsVolumeService = (() => {
     addWatchedSymbol,
     removeWatchedSymbol,
     getWatchedSymbols,
-    getOptionsData,
+    getOptionsVolumeHistory,
+    getLatestOptionsData,
     setBackgroundEnabled,
     isBackgroundEnabled,
-    getLastUpdateTime,
-    optionsEvents // Expose the event emitter
+    setNotificationsEnabled,
+    areNotificationsEnabled,
+    getLastUpdateTime
   };
 })();
