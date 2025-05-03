@@ -15,13 +15,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { SettingsService, DataProvider } from "@/services/SettingsService";
+import SettingsService, {
+  DataProvider,
+  STORAGE_KEYS,
+} from "@/services/SettingsService";
+import { OptionsVolumeService } from "@/services/OptionsVolumeService";
 
 export default function SettingsScreen() {
   const [apiKey, setApiKey] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [useDummyData, setUseDummyData] = useState(false);
+  const [isBackgroundEnabled, setIsBackgroundEnabled] = useState(false);
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(false);
 
   const inputBackground = useThemeColor(
     { light: "#f1f1f1", dark: "#333333" },
@@ -40,14 +46,25 @@ export default function SettingsScreen() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const key = await SettingsService.getTiingoApiKey();
+        const key = await SettingsService.get("TIINGO_API_KEY", "");
         if (key) {
           setApiKey(key);
         }
 
         // Load data provider setting
-        const isUsingDummy = await SettingsService.isUsingDummyProvider();
+        const isUsingDummy =
+          SettingsService.get("DATA_PROVIDER", DataProvider.DUMMY) ===
+          DataProvider.DUMMY;
         setUseDummyData(isUsingDummy);
+
+        // Load options volume settings
+        const backgroundEnabled =
+          await OptionsVolumeService.isBackgroundEnabled();
+        setIsBackgroundEnabled(backgroundEnabled);
+
+        const notificationsEnabled =
+          await OptionsVolumeService.areNotificationsEnabled();
+        setIsNotificationsEnabled(notificationsEnabled);
       } catch (error) {
         console.error("Error loading settings:", error);
       } finally {
@@ -69,7 +86,7 @@ export default function SettingsScreen() {
 
     setIsSaving(true);
     try {
-      await SettingsService.setTiingoApiKey(apiKey.trim());
+      await SettingsService.set("TIINGO_API_KEY", apiKey.trim());
       Alert.alert(
         "Success",
         "Your Tiingo API key has been saved. The app will now use real market data."
@@ -92,7 +109,7 @@ export default function SettingsScreen() {
 
       // Save the setting
       const provider = value ? DataProvider.DUMMY : DataProvider.TIINGO;
-      await SettingsService.setDataProvider(provider);
+      await SettingsService.set("DATA_PROVIDER", provider);
 
       Alert.alert(
         "Data Provider Changed",
@@ -108,6 +125,52 @@ export default function SettingsScreen() {
         "Error",
         "There was a problem saving your data provider setting."
       );
+    }
+  };
+
+  const handleToggleBackground = async () => {
+    try {
+      const newState = !isBackgroundEnabled;
+      await OptionsVolumeService.setBackgroundEnabled(newState);
+      setIsBackgroundEnabled(newState);
+
+      if (newState) {
+        Alert.alert(
+          "Background Updates Enabled",
+          "Options volume data will be updated every 10 minutes in the background."
+        );
+      } else {
+        Alert.alert(
+          "Background Updates Disabled",
+          "Options volume data will no longer be updated automatically."
+        );
+      }
+    } catch (error) {
+      console.error("Error toggling background updates:", error);
+      Alert.alert("Error", "Failed to change background update settings");
+    }
+  };
+
+  const handleToggleNotifications = async () => {
+    try {
+      const newState = !isNotificationsEnabled;
+      await OptionsVolumeService.setNotificationsEnabled(newState);
+      setIsNotificationsEnabled(newState);
+
+      if (newState) {
+        Alert.alert(
+          "Notifications Enabled",
+          "You will receive alerts when unusual options activity is detected."
+        );
+      } else {
+        Alert.alert(
+          "Notifications Disabled",
+          "You will no longer receive alerts about options activity."
+        );
+      }
+    } catch (error) {
+      console.error("Error toggling notifications:", error);
+      Alert.alert("Error", "Failed to change notification settings");
     }
   };
 
@@ -144,6 +207,50 @@ export default function SettingsScreen() {
               {useDummyData
                 ? "Using dummy data with AAPL, MSFT, and GOOGL stocks. No API calls will be made."
                 : "Using Tiingo API for live stock data. API key required."}
+            </ThemedText>
+
+            {/* Options Volume Settings */}
+            <ThemedText style={[styles.sectionTitle, { marginTop: 24 }]}>
+              Options Volume Settings
+            </ThemedText>
+            <ThemedView style={styles.settingRow}>
+              <ThemedText style={styles.settingLabel}>
+                Background Updates
+              </ThemedText>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#2196F3" />
+              ) : (
+                <Switch
+                  value={isBackgroundEnabled}
+                  onValueChange={handleToggleBackground}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={isBackgroundEnabled ? "#2196F3" : "#f4f3f4"}
+                />
+              )}
+            </ThemedView>
+            <ThemedText style={styles.settingDescription}>
+              {isBackgroundEnabled
+                ? "Options volume data will be updated every 10 minutes in the background."
+                : "Background updates are disabled. Options data will only update when manually refreshed."}
+            </ThemedText>
+
+            <ThemedView style={styles.settingRow}>
+              <ThemedText style={styles.settingLabel}>Notifications</ThemedText>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#2196F3" />
+              ) : (
+                <Switch
+                  value={isNotificationsEnabled}
+                  onValueChange={handleToggleNotifications}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={isNotificationsEnabled ? "#2196F3" : "#f4f3f4"}
+                />
+              )}
+            </ThemedView>
+            <ThemedText style={styles.settingDescription}>
+              {isNotificationsEnabled
+                ? "You will receive alerts when unusual options activity is detected."
+                : "Notifications for unusual options activity are disabled."}
             </ThemedText>
 
             {/* API Key Settings */}

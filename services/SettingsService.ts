@@ -1,15 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { EventEmitter } from "events";
 import { StockService } from "./StockService";
 
-// Define available data providers
 export enum DataProvider {
   TIINGO = "tiingo",
-  DUMMY = "dummy"
+  DUMMY = "dummy",
 }
-
-// Create an event emitter for settings changes
-export const settingsEvents = new EventEmitter();
 
 const STORAGE_KEYS = {
   TIINGO_API_KEY: "settings_tiingo_api_key",
@@ -18,130 +13,112 @@ const STORAGE_KEYS = {
   OPTIONS_UPDATE_INTERVAL: "settings_options_update_interval",
 };
 
-export const SettingsService = {
-  /**
-   * Set the Tiingo API key
-   */
-  setTiingoApiKey: async (apiKey: string): Promise<void> => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.TIINGO_API_KEY, apiKey);
-      // Reset the provider after changing the API key
+type Listener<T> = (newValue: T, oldValue: T) => void;
+
+class SettingsService {
+  private static instance: SettingsService;
+  private store: Record<string, any> = {};
+  private listeners: Record<string, Set<Listener<any>>> = {};
+
+  private constructor() {}
+
+  static getInstance(): SettingsService {
+    if (!SettingsService.instance) {
+      SettingsService.instance = new SettingsService();
+    }
+    return SettingsService.instance;
+  }
+
+  async loadAll(): Promise<void> {
+    const entries = Object.entries(STORAGE_KEYS) as [keyof typeof STORAGE_KEYS, string][];
+    for (const [_, storageKey] of entries) {
+      const value = await AsyncStorage.getItem(storageKey);
+      if (value !== null) {
+        if (storageKey === STORAGE_KEYS.OPTIONS_VOLUME_ENABLED) {
+          this.store[storageKey] = value === "true";
+        } else if (storageKey === STORAGE_KEYS.OPTIONS_UPDATE_INTERVAL) {
+          this.store[storageKey] = parseInt(value, 10);
+        } else {
+          this.store[storageKey] = value;
+        }
+      }
+    }
+  }
+
+  get<T>(key: keyof typeof STORAGE_KEYS, defaultValue: T): T {
+    const storageKey = STORAGE_KEYS[key];
+    const value = this.store[storageKey];
+    return value !== undefined ? (value as T) : defaultValue;
+  }
+
+  async set<T>(key: keyof typeof STORAGE_KEYS, value: T): Promise<void> {
+    const storageKey = STORAGE_KEYS[key];
+    const oldValue = this.store[storageKey];
+    this.store[storageKey] = value;
+    const toStore =
+      typeof value === "boolean" || typeof value === "number"
+        ? value.toString()
+        : (value as unknown as string);
+    await AsyncStorage.setItem(storageKey, toStore);
+    if (key === "TIINGO_API_KEY" || key === "DATA_PROVIDER") {
       await StockService.resetProvider();
-    } catch (error) {
-      console.error("Error saving Tiingo API key:", error);
-      throw error;
     }
-  },
+    this.notify(storageKey, value, oldValue);
+  }
 
-  /**
-   * Get the stored Tiingo API key
-   */
-  getTiingoApiKey: async (): Promise<string | null> => {
-    try {
-      return await AsyncStorage.getItem(STORAGE_KEYS.TIINGO_API_KEY);
-    } catch (error) {
-      console.error("Error retrieving Tiingo API key:", error);
-      return null;
+  subscribe<T>(key: keyof typeof STORAGE_KEYS, listener: Listener<T>): void {
+    const storageKey = STORAGE_KEYS[key];
+    if (!this.listeners[storageKey]) {
+      this.listeners[storageKey] = new Set();
     }
-  },
+    this.listeners[storageKey]!.add(listener as Listener<any>);
+  }
+
+  unsubscribe<T>(key: keyof typeof STORAGE_KEYS, listener: Listener<T>): void {
+    const storageKey = STORAGE_KEYS[key];
+    this.listeners[storageKey]?.delete(listener as Listener<any>);
+  }
 
   /**
-   * Check if the Tiingo API key is set
+   * Convenience: get the stored Tiingo API key
    */
-  hasTiingoApiKey: async (): Promise<boolean> => {
-    const apiKey = await SettingsService.getTiingoApiKey();
-    return apiKey !== null && apiKey.trim() !== "";
-  },
+  async getTiingoApiKey(): Promise<string> {
+    return this.get("TIINGO_API_KEY", "");
+  }
 
   /**
-   * Set the data provider to use (Tiingo or Dummy)
+   * Convenience: set the Tiingo API key
    */
-  setDataProvider: async (provider: DataProvider): Promise<void> => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.DATA_PROVIDER, provider);
-      // Reset the provider after changing the data provider
-      await StockService.resetProvider();
-    } catch (error) {
-      console.error("Error saving data provider setting:", error);
-      throw error;
-    }
-  },
+  async setTiingoApiKey(apiKey: string): Promise<void> {
+    await this.set("TIINGO_API_KEY", apiKey);
+  }
 
   /**
-   * Get the current data provider setting
-   * Default to Dummy if not set
+   * Convenience: check if using dummy data provider
    */
-  getDataProvider: async (): Promise<DataProvider> => {
-    try {
-      const provider = await AsyncStorage.getItem(STORAGE_KEYS.DATA_PROVIDER);
-      return (provider as DataProvider) || DataProvider.DUMMY;
-    } catch (error) {
-      console.error("Error retrieving data provider setting:", error);
-      return DataProvider.DUMMY;
-    }
-  },
+  async isUsingDummyProvider(): Promise<boolean> {
+    return this.get("DATA_PROVIDER", DataProvider.DUMMY) === DataProvider.DUMMY;
+  }
 
   /**
-   * Check if the dummy data provider is being used
+   * Convenience: set the data provider
    */
-  isUsingDummyProvider: async (): Promise<boolean> => {
-    const provider = await SettingsService.getDataProvider();
-    return provider === DataProvider.DUMMY;
-  },
+  async setDataProvider(provider: DataProvider): Promise<void> {
+    await this.set("DATA_PROVIDER", provider);
+  }
 
-  /**
-   * Enable or disable options volume background updates
-   */
-  setOptionsVolumeEnabled: async (enabled: boolean): Promise<void> => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.OPTIONS_VOLUME_ENABLED, enabled.toString());
-      // Emit an event that OptionsVolumeService can listen for
-      settingsEvents.emit('options-volume-enabled-changed', enabled);
-    } catch (error) {
-      console.error("Error saving options volume enabled setting:", error);
-      throw error;
-    }
-  },
+  private notify<T>(
+    storageKey: string,
+    newValue: T,
+    oldValue: T
+  ): void {
+    this.listeners[storageKey]?.forEach((listener) =>
+      listener(newValue, oldValue)
+    );
+  }
+}
 
-  /**
-   * Check if options volume background updates are enabled
-   */
-  isOptionsVolumeEnabled: async (): Promise<boolean> => {
-    try {
-      const value = await AsyncStorage.getItem(STORAGE_KEYS.OPTIONS_VOLUME_ENABLED);
-      return value === "true";
-    } catch (error) {
-      console.error("Error retrieving options volume enabled setting:", error);
-      return false;
-    }
-  },
-
-  /**
-   * Set the update interval for options volume (in minutes)
-   * Note: Currently the implementation has a fixed 1-hour interval
-   */
-  setOptionsUpdateInterval: async (minutes: number): Promise<void> => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.OPTIONS_UPDATE_INTERVAL, minutes.toString());
-      // Emit an event that OptionsVolumeService can listen for
-      settingsEvents.emit('options-update-interval-changed', minutes);
-    } catch (error) {
-      console.error("Error saving options update interval:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Get the update interval for options volume (in minutes)
-   * Default is 60 minutes (1 hour) if not set
-   */
-  getOptionsUpdateInterval: async (): Promise<number> => {
-    try {
-      const value = await AsyncStorage.getItem(STORAGE_KEYS.OPTIONS_UPDATE_INTERVAL);
-      return value ? parseInt(value, 10) : 60;
-    } catch (error) {
-      console.error("Error retrieving options update interval:", error);
-      return 60;
-    }
-  },
-};
+export { settingsService as SettingsService };
+const settingsService = SettingsService.getInstance();
+export default settingsService;
+export { STORAGE_KEYS };

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { SettingsService } from '../SettingsService';
+import SettingsService from '../SettingsService';
 
 export interface OptionsVolumeData {
   symbol: string;

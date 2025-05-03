@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OptionsVolumeProvider, OptionsVolumeData } from './providers/OptionsVolumeProvider';
-import { SettingsService, settingsEvents } from './SettingsService';
+import SettingsService from './SettingsService';
 import { dbService } from './DatabaseService';
 import { NotificationService } from './NotificationService';
 
@@ -72,23 +72,28 @@ export const OptionsVolumeService = (() => {
    */
   const setupSettingsListeners = (): void => {
     // Listen for changes to options volume enabled setting
-    settingsEvents.on('options-volume-enabled-changed', (enabled: boolean) => {
-      if (enabled) {
-        startBackgroundFetch();
-      } else {
-        stopBackgroundFetch();
+    SettingsService.subscribe<boolean>(
+      'OPTIONS_VOLUME_ENABLED',
+      (enabled) => {
+        if (enabled) {
+          startBackgroundFetch();
+        } else {
+          stopBackgroundFetch();
+        }
       }
-    });
+    );
     
     // Listen for changes to update interval
-    settingsEvents.on('options-update-interval-changed', async () => {
-      // Restart the background fetch with the new interval
-      const isEnabled = await isBackgroundEnabled();
-      if (isEnabled) {
-        stopBackgroundFetch();
-        startBackgroundFetch();
+    SettingsService.subscribe<number>(
+      'OPTIONS_UPDATE_INTERVAL',
+      async () => {
+        const isEnabled = await isBackgroundEnabled();
+        if (isEnabled) {
+          stopBackgroundFetch();
+          startBackgroundFetch();
+        }
       }
-    });
+    );
   };
   
   /**

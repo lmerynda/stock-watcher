@@ -244,6 +244,23 @@ export default function OptionsVolumeScreen() {
     }
   };
 
+  const handleFetchData = async () => {
+    try {
+      setIsLoading(true);
+      await OptionsVolumeService.fetchOptionsVolumeData();
+      await loadOptionsData();
+      Alert.alert(
+        "Data Updated",
+        "Successfully fetched the latest options data."
+      );
+    } catch (error) {
+      console.error("Error fetching options data:", error);
+      Alert.alert("Error", "Failed to fetch options data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const renderTimeRangeSelector = () => (
     <ThemedView style={styles.timeRangeSelector}>
       <TouchableOpacity
@@ -420,32 +437,18 @@ export default function OptionsVolumeScreen() {
               <ThemedText style={styles.title}>Options Volume</ThemedText>
             </ThemedView>
 
-            {/* Settings Row */}
-            <View style={styles.settingsRow}>
-              <View style={styles.settingItem}>
-                <ThemedText style={styles.settingLabel}>
-                  Background Updates
-                </ThemedText>
-                <Switch
-                  value={isBackgroundEnabled}
-                  onValueChange={handleToggleBackground}
-                  trackColor={{ false: "#767577", true: "#81b0ff" }}
-                  thumbColor={isBackgroundEnabled ? "#2196F3" : "#f4f3f4"}
-                />
-              </View>
-
-              <View style={styles.settingItem}>
-                <ThemedText style={styles.settingLabel}>
-                  Notifications
-                </ThemedText>
-                <Switch
-                  value={isNotificationsEnabled}
-                  onValueChange={handleToggleNotifications}
-                  trackColor={{ false: "#767577", true: "#81b0ff" }}
-                  thumbColor={isNotificationsEnabled ? "#2196F3" : "#f4f3f4"}
-                />
-              </View>
-            </View>
+            {/* Fetch Data Button */}
+            <TouchableOpacity
+              style={[
+                styles.fetchButton,
+                { backgroundColor: buttonBackground },
+              ]}
+              onPress={handleFetchData}
+            >
+              <ThemedText style={styles.fetchButtonText}>
+                Fetch Options Data
+              </ThemedText>
+            </TouchableOpacity>
 
             {/* Last Update Information */}
             {lastUpdate && (
@@ -541,19 +544,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-  },
-  settingsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  settingLabel: {
-    marginRight: 8,
-    fontSize: 14,
   },
   lastUpdateText: {
     textAlign: "center",
@@ -713,5 +703,17 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  fetchButton: {
+    height: 44,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  fetchButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#fff",
   },
 });
