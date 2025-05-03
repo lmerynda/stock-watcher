@@ -9,7 +9,6 @@ import {
   Alert,
   RefreshControl,
   Switch,
-  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
@@ -407,118 +406,118 @@ export default function OptionsVolumeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[accentColor]}
-            tintColor={accentColor}
-          />
-        }
-      >
-        <ThemedView style={styles.header}>
-          <ThemedText style={styles.title}>Options Volume</ThemedText>
-        </ThemedView>
-
-        <ThemedView style={styles.content}>
-          {/* Settings Row */}
-          <View style={styles.settingsRow}>
-            <View style={styles.settingItem}>
-              <ThemedText style={styles.settingLabel}>
-                Background Updates
-              </ThemedText>
-              <Switch
-                value={isBackgroundEnabled}
-                onValueChange={handleToggleBackground}
-                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                thumbColor={isBackgroundEnabled ? "#2196F3" : "#f4f3f4"}
-              />
-            </View>
-
-            <View style={styles.settingItem}>
-              <ThemedText style={styles.settingLabel}>Notifications</ThemedText>
-              <Switch
-                value={isNotificationsEnabled}
-                onValueChange={handleToggleNotifications}
-                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                thumbColor={isNotificationsEnabled ? "#2196F3" : "#f4f3f4"}
-              />
-            </View>
-          </View>
-
-          {/* Last Update Information */}
-          {lastUpdate && (
-            <ThemedText style={styles.lastUpdateText}>
-              Last update: {lastUpdate.toLocaleString()}
-            </ThemedText>
-          )}
-
-          {/* Add Symbol Input */}
-          <View style={styles.addSymbolRow}>
-            <TextInput
-              style={[
-                styles.symbolInput,
-                { backgroundColor: inputBackground, color: textColor },
-              ]}
-              value={newSymbol}
-              onChangeText={setNewSymbol}
-              placeholder="Enter symbol (e.g. AAPL)"
-              placeholderTextColor="#888888"
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-            <TouchableOpacity
-              style={[
-                styles.addButton,
-                { backgroundColor: buttonBackground },
-                !newSymbol.trim() && styles.disabledButton,
-              ]}
-              onPress={handleAddSymbol}
-              disabled={!newSymbol.trim()}
-            >
-              <ThemedText style={styles.buttonText}>Add</ThemedText>
-            </TouchableOpacity>
-          </View>
-
-          {/* Chart Section */}
-          {selectedSymbol && (
-            <ThemedView
-              style={[
-                styles.chartContainer,
-                { backgroundColor: cardBackground },
-              ]}
-            >
-              {renderTimeRangeSelector()}
-              <OptionsVolumeChart
-                symbol={selectedSymbol}
-                timeRange={selectedTimeRange}
-              />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={accentColor} />
+          <ThemedText style={styles.loadingText}>
+            Loading options data...
+          </ThemedText>
+        </View>
+      ) : (
+        <View style={styles.mainContainer}>
+          <View style={styles.headerSection}>
+            <ThemedView style={styles.header}>
+              <ThemedText style={styles.title}>Options Volume</ThemedText>
             </ThemedView>
-          )}
 
-          {/* Options Volume Data List */}
-          <ThemedText style={styles.sectionTitle}>Watched Symbols</ThemedText>
+            {/* Settings Row */}
+            <View style={styles.settingsRow}>
+              <View style={styles.settingItem}>
+                <ThemedText style={styles.settingLabel}>
+                  Background Updates
+                </ThemedText>
+                <Switch
+                  value={isBackgroundEnabled}
+                  onValueChange={handleToggleBackground}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={isBackgroundEnabled ? "#2196F3" : "#f4f3f4"}
+                />
+              </View>
 
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={accentColor} />
-              <ThemedText style={styles.loadingText}>
-                Loading options data...
-              </ThemedText>
+              <View style={styles.settingItem}>
+                <ThemedText style={styles.settingLabel}>
+                  Notifications
+                </ThemedText>
+                <Switch
+                  value={isNotificationsEnabled}
+                  onValueChange={handleToggleNotifications}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={isNotificationsEnabled ? "#2196F3" : "#f4f3f4"}
+                />
+              </View>
             </View>
-          ) : (
-            <FlatList
-              data={optionsData}
-              keyExtractor={(item) => item.symbol}
-              renderItem={renderOptionsVolumeItem}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={renderEmptyState}
-            />
-          )}
-        </ThemedView>
-      </ScrollView>
+
+            {/* Last Update Information */}
+            {lastUpdate && (
+              <ThemedText style={styles.lastUpdateText}>
+                Last update: {lastUpdate.toLocaleString()}
+              </ThemedText>
+            )}
+
+            {/* Add Symbol Input */}
+            <View style={styles.addSymbolRow}>
+              <TextInput
+                style={[
+                  styles.symbolInput,
+                  { backgroundColor: inputBackground, color: textColor },
+                ]}
+                value={newSymbol}
+                onChangeText={setNewSymbol}
+                placeholder="Enter symbol (e.g. AAPL)"
+                placeholderTextColor="#888888"
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  { backgroundColor: buttonBackground },
+                  !newSymbol.trim() && styles.disabledButton,
+                ]}
+                onPress={handleAddSymbol}
+                disabled={!newSymbol.trim()}
+              >
+                <ThemedText style={styles.buttonText}>Add</ThemedText>
+              </TouchableOpacity>
+            </View>
+
+            {/* Chart Section */}
+            {selectedSymbol && (
+              <ThemedView
+                style={[
+                  styles.chartContainer,
+                  { backgroundColor: cardBackground },
+                ]}
+              >
+                {renderTimeRangeSelector()}
+                <OptionsVolumeChart
+                  symbol={selectedSymbol}
+                  timeRange={selectedTimeRange}
+                />
+              </ThemedView>
+            )}
+
+            <ThemedText style={styles.sectionTitle}>Watched Symbols</ThemedText>
+          </View>
+
+          {/* Options Volume Data List - Now separate from ScrollView */}
+          <FlatList
+            data={optionsData}
+            keyExtractor={(item) => item.symbol}
+            renderItem={renderOptionsVolumeItem}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={renderEmptyState}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                colors={[accentColor]}
+                tintColor={accentColor}
+              />
+            }
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -527,21 +526,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  mainContainer: {
+    flex: 1,
+  },
+  headerSection: {
+    paddingHorizontal: 16,
+  },
   scrollContainer: {
     flexGrow: 1,
   },
   header: {
-    paddingHorizontal: 16,
     paddingVertical: 16,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
   },
   settingsRow: {
     flexDirection: "row",
@@ -624,6 +623,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   listContent: {
+    paddingHorizontal: 16,
     paddingBottom: 16,
   },
   optionsCard: {
@@ -691,7 +691,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: 40,
   },
   loadingText: {
     marginTop: 12,

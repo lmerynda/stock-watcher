@@ -82,15 +82,17 @@ export class DatabaseService {
       this.database = await SQLite.openDatabaseAsync('stockwatcher.db');
       
       // Create tables if they don't exist
-      await this.executeSql(this.DB_SCHEMA.OPTION_VOLUME_HISTORY, []);
-      await this.executeSql(this.DB_SCHEMA.MOVING_AVERAGES, []);
-      await this.executeSql(this.DB_SCHEMA.INDEXES, []);
+      await this.database.execAsync(this.DB_SCHEMA.OPTION_VOLUME_HISTORY);
+      await this.database.execAsync(this.DB_SCHEMA.MOVING_AVERAGES);
+      await this.database.execAsync(this.DB_SCHEMA.INDEXES);
       
-      // Set up scheduled purge of old data (keep only 7 days)
-      await this.purgeOldData();
-      
+      // Mark as initialized before calling purgeOldData
       this.initialized = true;
       console.log('Database initialized successfully');
+      
+      // Set up scheduled purge of old data (keep only 7 days)
+      // Do this after marking initialization as complete
+      await this.purgeOldData();
     } catch (error) {
       console.error('Failed to initialize database:', error);
       throw error;
@@ -98,30 +100,41 @@ export class DatabaseService {
   }
   
   // Execute SQL with proper error handling
-  private executeSql(sqlStatement: string, params: any[] = []): Promise<SQLiteResult> {
-    return new Promise((resolve, reject) => {
-      if (!this.database) {
-        reject(new Error('Database not initialized'));
-        return;
+  private async executeSql(sqlStatement: string, params: any[] = []): Promise<SQLiteResult> {
+    if (!this.database) {
+      throw new Error('Database not initialized');
+    }
+    
+    try {
+      // For parameterized queries, we need to use different methods
+      if (params.length > 0) {
+        // For queries with parameters, use the runAsync method that supports parameters
+        const result = await this.database.runAsync(sqlStatement, params);
+        return {
+          rows: {
+            length: 0,
+            item: () => undefined,
+            _array: []
+          },
+          rowsAffected: result?.changes || 0,
+          insertId: result?.lastInsertRowId
+        };
+      } else {
+        // For statements without parameters, use execAsync
+        await this.database.execAsync(sqlStatement);
+        return {
+          rows: {
+            length: 0,
+            item: () => undefined,
+            _array: []
+          },
+          rowsAffected: 0
+        };
       }
-      
-      this.database.execAsync(sqlStatement)
-        .then(() => {
-          // Since execAsync returns void, create a default result object
-          resolve({ 
-            rows: { 
-              length: 0, 
-              item: () => undefined, 
-              _array: [] 
-            }, 
-            rowsAffected: 0 
-          });
-        })
-        .catch(error => {
-          console.error('SQL Error:', error);
-          reject(error);
-        });
-    });
+    } catch (error) {
+      console.error('SQL Error:', error);
+      throw error;
+    }
   }
   
   // Execute multiple SQL statements in a transaction
@@ -243,10 +256,10 @@ export class DatabaseService {
       
       query += ' ORDER BY timestamp ASC';
       
-      const results = await this.executeSql(query, params);
+      // Use getAllAsync for SELECT queries to get rows
+      const results = this.database ? await this.database.getAllAsync(query, params) : [];
       
-      // Use the _array property for more elegant mapping
-      return results.rows._array.map(row => ({
+      return results.map((row: any) => ({
         symbol: row.symbol,
         date: new Date(row.timestamp).toISOString().split('T')[0],
         callVolume: row.call_volume,
@@ -302,11 +315,11 @@ export class DatabaseService {
         WHERE symbol = ?
       `;
       
-      const results = await this.executeSql(query, [symbol]);
+      // Use getAllAsync for SELECT queries
+      const results = this.database ? await this.database.getAllAsync(query, [symbol]) : [];
       
-      // Use _array approach for consistency
-      if (results.rows._array.length > 0) {
-        const row = results.rows._array[0];
+      if (results.length > 0) {
+        const row: any = results[0];
         return {
           symbol: row.symbol,
           ma10: row.ma10,
