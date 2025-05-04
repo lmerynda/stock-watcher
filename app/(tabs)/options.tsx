@@ -107,10 +107,7 @@ export default function OptionsVolumeScreen() {
       const data = await OptionsVolumeService.getLatestOptionsData();
       setOptionsData(data);
 
-      // Set selected symbol (if we have symbols and none is selected)
-      if (symbols.length > 0 && !selectedSymbol) {
-        setSelectedSymbol(symbols[0]);
-      }
+      // Do not auto-select a symbol; initial view will list symbols
 
       // Get last update time
       const lastUpdateTime = await OptionsVolumeService.getLastUpdateTime();
@@ -430,11 +427,47 @@ export default function OptionsVolumeScreen() {
             Loading options data...
           </ThemedText>
         </View>
+      ) : selectedSymbol == null ? (
+        <FlatList
+          data={watchedSymbols}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.symbolListItem}
+              onPress={() => setSelectedSymbol(item)}
+              activeOpacity={0.7}
+            >
+              <ThemedText style={styles.symbolListText}>{item}</ThemedText>
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[accentColor]}
+              tintColor={accentColor}
+            />
+          }
+        />
       ) : (
         <View style={styles.mainContainer}>
           <View style={styles.headerSection}>
+            {selectedSymbol && (
+              <TouchableOpacity
+                onPress={() => setSelectedSymbol(null)}
+                style={{ marginBottom: 8 }}
+              >
+                <ThemedText style={{ color: accentColor }}>
+                  {"< Back"}
+                </ThemedText>
+              </TouchableOpacity>
+            )}
             <ThemedView style={styles.header}>
-              <ThemedText style={styles.title}>Options Volume</ThemedText>
+              <ThemedText style={styles.title}>
+                {selectedSymbol ? selectedSymbol : "Options Volume"}
+              </ThemedText>
             </ThemedView>
 
             {/* Fetch Data Button */}
@@ -703,6 +736,14 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  symbolListItem: {
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#ccc",
+  },
+  symbolListText: {
+    fontSize: 16,
   },
   fetchButton: {
     height: 44,
