@@ -142,16 +142,14 @@ export default function OptionsVolumeScreen() {
       setIsBackgroundEnabled(newState);
 
       if (newState) {
-        Alert.alert(
-          "Background Updates Enabled",
-          "Options volume data will be updated every 10 minutes in the background."
+        console.log(
+          "Background Updates Enabled: Options volume data will be updated every 10 minutes in the background."
         );
         // Force an immediate update when enabled
         handleRefresh();
       } else {
-        Alert.alert(
-          "Background Updates Disabled",
-          "Options volume data will no longer be updated automatically."
+        console.log(
+          "Background Updates Disabled: Options volume data will no longer be updated automatically."
         );
       }
     } catch (error) {
@@ -167,14 +165,12 @@ export default function OptionsVolumeScreen() {
       setIsNotificationsEnabled(newState);
 
       if (newState) {
-        Alert.alert(
-          "Notifications Enabled",
-          "You will receive alerts when unusual options activity is detected."
+        console.log(
+          "Notifications Enabled: You will receive alerts when unusual options activity is detected."
         );
       } else {
-        Alert.alert(
-          "Notifications Disabled",
-          "You will no longer receive alerts about options activity."
+        console.log(
+          "Notifications Disabled: You will no longer receive alerts about options activity."
         );
       }
     } catch (error) {
@@ -246,9 +242,8 @@ export default function OptionsVolumeScreen() {
       setIsLoading(true);
       await OptionsVolumeService.fetchOptionsVolumeData();
       await loadOptionsData();
-      Alert.alert(
-        "Data Updated",
-        "Successfully fetched the latest options data."
+      console.log(
+        "Data Updated: Successfully fetched the latest options data."
       );
     } catch (error) {
       console.error("Error fetching options data:", error);

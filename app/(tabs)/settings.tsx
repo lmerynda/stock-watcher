@@ -87,10 +87,7 @@ export default function SettingsScreen() {
     setIsSaving(true);
     try {
       await SettingsService.set("TIINGO_API_KEY", apiKey.trim());
-      Alert.alert(
-        "Success",
-        "Your Tiingo API key has been saved. The app will now use real market data."
-      );
+      console.log("Tiingo API key saved. App now using real market data.");
     } catch (error) {
       console.error("Error saving API key:", error);
       Alert.alert(
@@ -111,11 +108,12 @@ export default function SettingsScreen() {
       const provider = value ? DataProvider.DUMMY : DataProvider.TIINGO;
       await SettingsService.set("DATA_PROVIDER", provider);
 
-      Alert.alert(
-        "Data Provider Changed",
-        value
-          ? "Using dummy data with fixed values. No API calls will be made."
-          : "Using Tiingo API for live stock data."
+      console.log(
+        `Data Provider Changed: ${
+          value
+            ? "Using dummy data with fixed values. No API calls will be made."
+            : "Using Tiingo API for live stock data."
+        }`
       );
     } catch (error) {
       console.error("Error saving data provider setting:", error);
@@ -135,14 +133,12 @@ export default function SettingsScreen() {
       setIsBackgroundEnabled(newState);
 
       if (newState) {
-        Alert.alert(
-          "Background Updates Enabled",
-          "Options volume data will be updated every 10 minutes in the background."
+        console.log(
+          "Background Updates Enabled: Options volume data will be updated every 10 minutes in the background."
         );
       } else {
-        Alert.alert(
-          "Background Updates Disabled",
-          "Options volume data will no longer be updated automatically."
+        console.log(
+          "Background Updates Disabled: Options volume data will no longer be updated automatically."
         );
       }
     } catch (error) {
@@ -158,14 +154,12 @@ export default function SettingsScreen() {
       setIsNotificationsEnabled(newState);
 
       if (newState) {
-        Alert.alert(
-          "Notifications Enabled",
-          "You will receive alerts when unusual options activity is detected."
+        console.log(
+          "Notifications Enabled: You will receive alerts when unusual options activity is detected."
         );
       } else {
-        Alert.alert(
-          "Notifications Disabled",
-          "You will no longer receive alerts about options activity."
+        console.log(
+          "Notifications Disabled: You will no longer receive alerts about options activity."
         );
       }
     } catch (error) {
@@ -304,9 +298,8 @@ export default function SettingsScreen() {
               <ThemedText
                 style={[styles.link, { color: infoColor }]}
                 onPress={() =>
-                  Alert.alert(
-                    "Get Tiingo API Key",
-                    "Please visit tiingo.com and sign up for an account to get your API key."
+                  console.log(
+                    "Get Tiingo API Key: Please visit tiingo.com and sign up for an account to get your API key."
                   )
                 }
               >

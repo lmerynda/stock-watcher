@@ -40,11 +40,10 @@ export default function ExploreScreen() {
       );
 
       // Emit an event to notify the watchlist screen
-      stockEvents.emit('watchlistUpdated', watchlistSymbols);
+      stockEvents.emit("watchlistUpdated", watchlistSymbols);
 
-      Alert.alert(
-        "Added to Watchlist",
-        `${stock.symbol} has been added to your watchlist.`
+      console.log(
+        `Added to Watchlist: ${stock.symbol} has been added to your watchlist.`
       );
     } catch (error) {
       console.error("Error adding to watchlist:", error);
