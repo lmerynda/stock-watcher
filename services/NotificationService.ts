@@ -6,7 +6,6 @@ import { OptionsVolumeData } from './providers/OptionsVolumeProvider';
 // Configure notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
