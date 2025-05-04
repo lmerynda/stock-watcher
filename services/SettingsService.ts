@@ -93,6 +93,11 @@ class SettingsService {
     await this.set("TIINGO_API_KEY", apiKey);
   }
 
+  async hasTiingoApiKey(): Promise<boolean> {
+    const key = await this.getTiingoApiKey();
+    return key.trim().length > 0;
+  }
+
   /**
    * Convenience: check if using dummy data provider
    */
