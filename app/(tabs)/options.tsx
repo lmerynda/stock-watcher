@@ -432,13 +432,30 @@ export default function OptionsVolumeScreen() {
           data={watchedSymbols}
           keyExtractor={(item) => item}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.symbolListItem}
-              onPress={() => setSelectedSymbol(item)}
-              activeOpacity={0.7}
+            <ThemedView
+              style={[
+                styles.symbolListItem,
+                {
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                },
+              ]}
             >
-              <ThemedText style={styles.symbolListText}>{item}</ThemedText>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1 }}
+                onPress={() => setSelectedSymbol(item)}
+                activeOpacity={0.7}
+              >
+                <ThemedText style={styles.symbolListText}>{item}</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => handleRemoveSymbol(item)}
+              >
+                <ThemedText style={styles.removeButtonText}>✕</ThemedText>
+              </TouchableOpacity>
+            </ThemedView>
           )}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
