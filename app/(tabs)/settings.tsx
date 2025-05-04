@@ -4,7 +4,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
+  ToastAndroid,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -77,9 +77,9 @@ export default function SettingsScreen() {
 
   const handleSaveApiKey = async () => {
     if (!apiKey.trim()) {
-      Alert.alert(
-        "Invalid API Key",
-        "Please enter a valid Tiingo API key to continue."
+      ToastAndroid.show(
+        "Invalid API Key: Please enter a valid Tiingo API key to continue.",
+        ToastAndroid.LONG
       );
       return;
     }
@@ -90,9 +90,9 @@ export default function SettingsScreen() {
       console.log("Tiingo API key saved. App now using real market data.");
     } catch (error) {
       console.error("Error saving API key:", error);
-      Alert.alert(
-        "Error",
-        "There was a problem saving your API key. Please try again."
+      ToastAndroid.show(
+        "Error: There was a problem saving your API key. Please try again.",
+        ToastAndroid.LONG
       );
     } finally {
       setIsSaving(false);
@@ -119,9 +119,9 @@ export default function SettingsScreen() {
       console.error("Error saving data provider setting:", error);
       // Revert UI state if save failed
       setUseDummyData(!value);
-      Alert.alert(
-        "Error",
-        "There was a problem saving your data provider setting."
+      ToastAndroid.show(
+        "Error: There was a problem saving your data provider setting.",
+        ToastAndroid.LONG
       );
     }
   };
@@ -143,7 +143,10 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error("Error toggling background updates:", error);
-      Alert.alert("Error", "Failed to change background update settings");
+      ToastAndroid.show(
+        "Error: Failed to change background update settings",
+        ToastAndroid.LONG
+      );
     }
   };
 
@@ -164,7 +167,10 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error("Error toggling notifications:", error);
-      Alert.alert("Error", "Failed to change notification settings");
+      ToastAndroid.show(
+        "Error: Failed to change notification settings",
+        ToastAndroid.LONG
+      );
     }
   };
 

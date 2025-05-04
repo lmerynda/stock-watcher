@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
   TextInput,
-  Alert,
+  ToastAndroid,
   RefreshControl,
   Switch,
 } from "react-native";
@@ -116,7 +116,10 @@ export default function OptionsVolumeScreen() {
       }
     } catch (error) {
       console.error("Error loading options volume data:", error);
-      Alert.alert("Error", "Failed to load options volume data");
+      ToastAndroid.show(
+        "Error: Failed to load options volume data",
+        ToastAndroid.LONG
+      );
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +132,10 @@ export default function OptionsVolumeScreen() {
       await loadOptionsData();
     } catch (error) {
       console.error("Error refreshing options volume data:", error);
-      Alert.alert("Error", "Failed to refresh options volume data");
+      ToastAndroid.show(
+        "Error: Failed to refresh options volume data",
+        ToastAndroid.LONG
+      );
     } finally {
       setIsRefreshing(false);
     }
@@ -154,7 +160,10 @@ export default function OptionsVolumeScreen() {
       }
     } catch (error) {
       console.error("Error toggling background updates:", error);
-      Alert.alert("Error", "Failed to change background update settings");
+      ToastAndroid.show(
+        "Error: Failed to change background update settings",
+        ToastAndroid.LONG
+      );
     }
   };
 
@@ -175,7 +184,10 @@ export default function OptionsVolumeScreen() {
       }
     } catch (error) {
       console.error("Error toggling notifications:", error);
-      Alert.alert("Error", "Failed to change notification settings");
+      ToastAndroid.show(
+        "Error: Failed to change notification settings",
+        ToastAndroid.LONG
+      );
     }
   };
 
@@ -187,9 +199,9 @@ export default function OptionsVolumeScreen() {
     const symbol = newSymbol.trim().toUpperCase();
 
     if (watchedSymbols.includes(symbol)) {
-      Alert.alert(
-        "Symbol Already Added",
-        `${symbol} is already in your watched list.`
+      ToastAndroid.show(
+        `${symbol} is already in your watched list.`,
+        ToastAndroid.LONG
       );
       return;
     }
@@ -208,9 +220,9 @@ export default function OptionsVolumeScreen() {
       handleRefresh();
     } catch (error) {
       console.error("Error adding symbol:", error);
-      Alert.alert(
-        "Error",
-        "There was a problem adding the symbol to your watched list."
+      ToastAndroid.show(
+        "Error: There was a problem adding the symbol to your watched list.",
+        ToastAndroid.LONG
       );
     }
   };
@@ -230,9 +242,9 @@ export default function OptionsVolumeScreen() {
       }
     } catch (error) {
       console.error("Error removing symbol:", error);
-      Alert.alert(
-        "Error",
-        "There was a problem removing the symbol from your watched list."
+      ToastAndroid.show(
+        "Error: There was a problem removing the symbol from your watched list.",
+        ToastAndroid.LONG
       );
     }
   };
@@ -247,7 +259,10 @@ export default function OptionsVolumeScreen() {
       );
     } catch (error) {
       console.error("Error fetching options data:", error);
-      Alert.alert("Error", "Failed to fetch options data");
+      ToastAndroid.show(
+        "Error: Failed to fetch options data",
+        ToastAndroid.LONG
+      );
     } finally {
       setIsLoading(false);
     }

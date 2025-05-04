@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { StyleSheet, TouchableOpacity, Alert } from "react-native";
+import {
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ToastAndroid,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StockSearch } from "@/components/stocks/StockSearch";
 import { StockCard } from "@/components/stocks/StockCard";
@@ -25,9 +30,9 @@ export default function ExploreScreen() {
 
       // Check if stock already exists in watchlist
       if (watchlistSymbols.includes(stock.symbol)) {
-        Alert.alert(
-          "Already in Watchlist",
-          `${stock.symbol} is already in your watchlist.`
+        ToastAndroid.show(
+          `${stock.symbol} is already in your watchlist.`,
+          ToastAndroid.LONG
         );
         return;
       }
@@ -47,7 +52,10 @@ export default function ExploreScreen() {
       );
     } catch (error) {
       console.error("Error adding to watchlist:", error);
-      Alert.alert("Error", "Failed to add stock to watchlist.");
+      ToastAndroid.show(
+        "Error: Failed to add stock to watchlist.",
+        ToastAndroid.LONG
+      );
     }
   };
 
