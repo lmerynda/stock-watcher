@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events';
+import EventEmitter from 'eventemitter3';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OptionsVolumeProvider, OptionsVolumeData } from './providers/OptionsVolumeProvider';
 import SettingsService from './SettingsService';
@@ -26,7 +26,7 @@ export const OptionsVolumeService = (() => {
   // Private variables
   let _provider: OptionsVolumeProvider | null = null;
   let _isInitialized = false;
-  let _backgroundTimerId: NodeJS.Timeout | null = null;
+  let _backgroundTimerId: ReturnType<typeof setInterval> | null = null;
   let _notificationsPermissionGranted = false;
   
   // Initialize provider

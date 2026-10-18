@@ -54,3 +54,28 @@ Available mock stocks in the demo:
 ## License
 
 This project is MIT licensed.
+
+## Dependency and SDK compatibility
+
+Use Node.js 24 or newer. The app uses Expo SDK 58, React Native 0.88, and React 19.3;
+keep Expo-managed native packages aligned with `npx expo install --check`.
+
+```sh
+npm ci
+npm run typecheck
+npm test -- --runInBand
+npm run build:web
+```
+
+After an SDK update, rebuild the Android/iOS development application and verify
+watchlist navigation, persistence, charts, and notification permissions on a device.
+A successful web export does not replace native testing.
+
+SQLite on web requires WebAssembly assets and cross-origin isolation. Metro is
+configured for local development; static hosting must also return
+`Cross-Origin-Embedder-Policy: credentialless` and
+`Cross-Origin-Opener-Policy: same-origin`.
+
+The scoped dependency overrides retain current `js-yaml`, UUID, and Babel/Jest
+implementations for older upstream callers. Recheck these overrides when those
+callers update their own dependency ranges.
