@@ -1,10 +1,21 @@
 import * as React from 'react';
-import renderer from 'react-test-renderer';
+import { createRoot } from 'test-renderer';
 
 import { ThemedText } from '../ThemedText';
 
-it(`renders correctly`, () => {
-  const tree = renderer.create(<ThemedText>Snapshot test!</ThemedText>).toJSON();
+it('renders correctly', async () => {
+  const root = createRoot();
+  await React.act(async () => {
+    root.render(<ThemedText>Snapshot test!</ThemedText>);
+  });
 
-  expect(tree).toMatchSnapshot();
+  const text = root.container.children[0];
+  if (typeof text === 'string') {
+    throw new Error('Expected the themed text host component');
+  }
+  expect(text.toJSON()).toMatchSnapshot();
+
+  await React.act(async () => {
+    root.unmount();
+  });
 });
